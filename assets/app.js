@@ -1,9 +1,9 @@
 const ranks=[
-{name:"Boss",access:"full",color:"#ef4444"},{name:"Underboss",access:"full"},{name:"Capo",access:"full"},{name:"Consigliere",access:"full"},
-{name:"Commander",access:"full"},{name:"Captain",access:"full"},{name:"Lieutenant",access:"full"},{name:"Sergeant",access:"full"},
-{name:"Enforcer",access:"full"},{name:"Veteran",access:"full"},{name:"Officer",access:"full"},{name:"Senior",access:"full"},
-{name:"Trusted",access:"full"},{name:"Member+",access:"full"},{name:"Elite",access:"full"},
-{name:"Member",access:"low"},{name:"Soldier",access:"low"},{name:"Recruit",access:"low"},{name:"Rookie",access:"low"},{name:"Prospect",access:"low"},
+{name:"Zakhar asli",access:"full",color:"#ef4444"},{name:"boss",access:"full"},{name:"Moaven",access:"full"},{name:"Consigliere",access:"full"},
+{name:"",access:"full"},{name:"khlafkar",access:"full"},{name:"khonsard",access:"full"},{name:"Sergeant",access:"full"},
+{name:"",access:"full"},{name:"zorgir",access:"full"},{name:"gardan koloft",access:"full"},{name:"Senior",access:"full"},
+{name:"lat",access:"full"},{name:"lat",access:"full"},{name:"Elite",access:"full"},
+{name:"Member",access:"low"},{name:"Noche",access:"low"},{name:"Recruit",access:"low"},{name:"Rookie",access:"low"},{name:"Prospect",access:"low"},
 {name:"Trainee",access:"low"},{name:"Associate",access:"low"},{name:"Junior",access:"low"},{name:"Cadet",access:"low"},{name:"Support",access:"low"},
 {name:"Runner",access:"low"},{name:"New Blood",access:"low"},{name:"Probation",access:"low"},{name:"Visitor",access:"low"},{name:"Guest+",access:"low"},
 {name:"Guest",access:"low"},{name:"Trial",access:"low"},{name:"Applicant",access:"low"},{name:"Fresh",access:"low"},{name:"Starter",access:"low"},{name:"Civilian",access:"low"}];
