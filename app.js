@@ -1,31 +1,608 @@
-let token=sessionStorage.getItem("aztoken"),ranks=[],members=[],logs=[];
-const $=id=>document.getElementById(id);
-const api=async(u,o={})=>{o.headers={...(o.headers||{}),"Content-Type":"application/json"};if(token)o.headers["x-admin-token"]=token;let r=await fetch(u,o),d=await r.json().catch(()=>({}));if(r.status===401){logout();throw Error("Unauthorized")}if(!r.ok)throw Error(d.error||"خطا");return d};
-const esc=x=>String(x??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-const time=x=>new Date(x).toLocaleString("fa-IR",{dateStyle:"short",timeStyle:"short"});
-function login(){api("/api/login",{method:"POST",body:JSON.stringify({username:$("u").value,password:$("p").value})}).then(d=>{token=d.token;sessionStorage.setItem("aztoken",token);init()}).catch(e=>$("err").textContent=e.message)}
-function logout(){sessionStorage.removeItem("aztoken");token=null;$("app").classList.add("hide");$("login").classList.remove("hide")}
-function init(){if(!token)return; $("login").classList.add("hide");$("app").classList.remove("hide");loadAll();setInterval(ts,5000)}
-async function loadAll(){let c=await api("/api/config");ranks=c.ranks;renderRanks();await loadMembers();await loadLogs();await loadTickets();ts();show("dashboard")}
-async function loadMembers(){members=await api("/api/members");$("sm").textContent=members.length;$("son").textContent=members.filter(x=>x.status!=="off-duty").length;$("soff").textContent=members.filter(x=>x.status==="off-duty").length;renderMembers()}
-function renderMembers(){$("members").innerHTML=members.map(m=>`<tr><td><b>${esc(m.name)}</b></td><td><span class="status red">✦ ${esc(m.rank||"-")}</span></td><td>${esc((m.divisions||[]).join(" • ")||"-")}</td><td>${esc(m.warn)}</td><td>${m.points||0}</td><td class="${m.status==="off-duty"?"red":"green"}">${m.status==="off-duty"?"Off-Duty":"On-Duty"}</td><td class="actions"><button onclick="editMember('${m.id}')">ویرایش</button><button onclick="duty('${m.id}','${m.status==="off-duty"?"on-duty":"off-duty"}')">${m.status==="off-duty"?"On":"Off"}</button><button onclick="points('${m.id}',1)">+1</button><button onclick="points('${m.id}',-1)">-1</button><button class="danger" onclick="delMember('${m.id}')">حذف</button></td></tr>`).join("")||"<tr><td colspan=7>عضوی ثبت نشده</td></tr>"}
-function memberForm(m={}){return `<h3>${m.id?"ویرایش":"ثبت"} Member</h3><div class="rankedit"><input id="mn" value="${esc(m.name||"")}" placeholder="نام"><select id="mr">${ranks.map(r=>`<option ${r.name===m.rank?"selected":""}>${esc(r.name)}</option>`).join("")}</select><input id="mw" value="${esc(m.warn||"0/3")}" placeholder="Warn"><input id="md" value="${esc((m.divisions||[]).join(", "))}" placeholder="Division"></div><button onclick="saveMember('${m.id||""}')">ذخیره</button>`}
-function newMember(){$("memberForm").innerHTML=memberForm();$("memberForm").classList.remove("hide")}
-function editMember(id){let m=members.find(x=>x.id===id);$("memberForm").innerHTML=memberForm(m);$("memberForm").classList.remove("hide")}
-async function saveMember(id){let d={name:$("mn").value,rank:$("mr").value,warn:$("mw").value,divisions:$("md").value.split(",").map(x=>x.trim()).filter(Boolean)};await api(id?"/api/members/"+id:"/api/members",{method:id?"PUT":"POST",body:JSON.stringify(d)});$("memberForm").classList.add("hide");await loadMembers();await loadLogs()}
-async function delMember(id){if(confirm("حذف شود؟")){await api("/api/members/"+id,{method:"DELETE"});loadMembers();loadLogs()}}
-async function duty(id,status){let hours=1;if(status==="off-duty"){hours=Number(prompt("چند ساعت؟","2"));if(!hours)return}await api("/api/members/"+id+"/duty",{method:"PUT",body:JSON.stringify({status,hours})});loadMembers();loadLogs()}
-async function points(id,d){await api("/api/members/"+id+"/points",{method:"PUT",body:JSON.stringify({delta:d})});loadMembers();loadLogs()}
-function renderRanks(){$("rankedit").innerHTML=ranks.map((r,i)=>`<div class="rankedit"><b>${r.level}</b><input data-ri="${i}" value="${esc(r.name)}"></div>`).join("");$("preview").innerHTML=ranks.slice(0,8).map(r=>`<div class=rank><span>${esc(r.name)}</span><em>${r.level}</em></div>`).join("")}
-async function saveRanks(){let rr=ranks.map((r,i)=>({level:r.level,name:document.querySelector(`[data-ri="${i}"]`).value.trim()}));await api("/api/settings/ranks",{method:"PUT",body:JSON.stringify({ranks:rr})});ranks=rr.sort((a,b)=>b.level-a.level);renderRanks();await loadMembers();alert("اسم رنک‌ها ذخیره شد")}
-async function loadLogs(){logs=await api("/api/logs?limit=300");$("sl").textContent=logs.length;$("recent").innerHTML=logs.slice(0,10).map(logHtml).join("")||"لاگی نیست";["teamspeak","locker","gang"].forEach(c=>$(c+"logs").innerHTML=logs.filter(x=>x.category===c).map(logHtml).join("")||"لاگی نیست")}
-function logHtml(x){return `<div class=log><span class=tag>${esc(x.category)}</span><div><b>${esc(x.action)}</b> ${esc(x.subject||"")}<br><small>${esc(x.details||"")}</small></div><small>${time(x.createdAt)}</small></div>`}
-function logModal(c){$("lc").value=c;$("mt").textContent=c+" Log";$("la").value="";$("ls").value="";$("lx").value="";$("ld").value="";$("modal").classList.remove("hide")}
-function closeModal(){$("modal").classList.add("hide")}
-async function saveLog(){await api("/api/logs",{method:"POST",body:JSON.stringify({category:$("lc").value,actor:$("la").value,subject:$("ls").value,action:$("lx").value,details:$("ld").value})});closeModal();loadLogs()}
-async function loadTickets(){let t=await api("/api/tickets");$("tickets").innerHTML=t.map(x=>`<tr><td>${x.type}</td><td>${esc(x.playerName)}</td><td>${esc(x.reason||"-")}</td><td>${x.durationHours||"-"}</td><td>${x.status}</td><td class=actions><button onclick="ticket('${x.id}','approved')">تایید</button><button class=danger onclick="ticket('${x.id}','denied')">رد</button></td></tr>`).join("")}
-async function ticket(id,status){await api("/api/tickets/"+id,{method:"PUT",body:JSON.stringify({status})});loadTickets();loadLogs()}
-async function ts(){try{let s=await api("/api/ts/status");$("tsstate").textContent=s.ready?"Connected":s.connected?"Connecting":"Offline";document.querySelector(".ts").classList.toggle("ok",s.ready)}catch{}}
-function show(id){document.querySelectorAll(".page").forEach(x=>x.classList.add("hide"));$(id).classList.remove("hide");document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===id));$("title").textContent={dashboard:"داشبورد",members:"Members",ranks:"Rank Manager",teamspeak:"TeamSpeak Log",locker:"Locker Log",gang:"Gang Log",tickets:"Requests"}[id]}
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>show(b.dataset.page));
-if(token)init();
+```javascript
+// ===============================
+// ARAZEL COMMAND CENTER
+// app.js
+// ===============================
+
+
+// --------------------------------
+// Login
+// --------------------------------
+
+function login() {
+
+    const username =
+        document.getElementById("u").value.trim();
+
+    const password =
+        document.getElementById("p").value;
+
+    const error =
+        document.getElementById("err");
+
+
+    if (!username || !password) {
+
+        error.style.color = "#ff4b4b";
+
+        error.textContent =
+            "نام کاربری و رمز عبور را وارد کنید.";
+
+        return;
+    }
+
+
+    /*
+     * فعلاً ورود محلی است.
+     *
+     * برای ورود واقعی باید این قسمت
+     * به API بک‌اند وصل شود.
+     */
+
+    error.textContent = "";
+
+    document.getElementById("login")
+        .classList.add("hide");
+
+    document.getElementById("app")
+        .classList.remove("hide");
+
+
+    if (typeof updateStats === "function") {
+        updateStats();
+    }
+
+}
+
+
+// --------------------------------
+// Register
+// --------------------------------
+
+async function register() {
+
+    const username =
+        document.getElementById("u").value.trim();
+
+    const password =
+        document.getElementById("p").value;
+
+    const error =
+        document.getElementById("err");
+
+
+    if (!username || !password) {
+
+        error.style.color = "#ff4b4b";
+
+        error.textContent =
+            "نام کاربری و رمز عبور را وارد کنید.";
+
+        return;
+    }
+
+
+    if (password.length < 6) {
+
+        error.style.color = "#ff4b4b";
+
+        error.textContent =
+            "رمز عبور باید حداقل ۶ کاراکتر باشد.";
+
+        return;
+    }
+
+
+    /*
+     * این آدرس را باید با آدرس API واقعی
+     * بک‌اند خودت جایگزین کنی.
+     *
+     * مثال:
+     *
+     * https://example.com/api/register
+     */
+
+    const API_URL = "/api/register";
+
+
+    try {
+
+        const response =
+            await fetch(API_URL, {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type":
+                        "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    username: username,
+
+                    password: password
+
+                })
+
+            });
+
+
+        const data =
+            await response.json();
+
+
+        if (!response.ok) {
+
+            throw new Error(
+                data.message ||
+                "ثبت‌نام انجام نشد."
+            );
+
+        }
+
+
+        error.style.color = "#00d26a";
+
+        error.textContent =
+            data.message ||
+            "اکانت با موفقیت ساخته شد.";
+
+
+    } catch (err) {
+
+        /*
+         * اگر API هنوز ساخته نشده باشد،
+         * این پیام نمایش داده می‌شود.
+         */
+
+        error.style.color = "#ff4b4b";
+
+        error.textContent =
+            "اتصال به سرور ثبت‌نام برقرار نشد.";
+
+        console.error(
+            "Register error:",
+            err
+        );
+
+    }
+
+}
+
+
+// --------------------------------
+// Logout
+// --------------------------------
+
+function logout() {
+
+    document.getElementById("app")
+        .classList.add("hide");
+
+    document.getElementById("login")
+        .classList.remove("hide");
+
+
+    const username =
+        document.getElementById("u");
+
+    const password =
+        document.getElementById("p");
+
+    if (username) {
+        username.value = "";
+    }
+
+    if (password) {
+        password.value = "";
+    }
+
+}
+
+
+// --------------------------------
+// Navigation
+// --------------------------------
+
+function showPage(page) {
+
+    document
+        .querySelectorAll(".page")
+        .forEach(function(element) {
+
+            element.classList.add("hide");
+
+        });
+
+
+    const selected =
+        document.getElementById(page);
+
+
+    if (selected) {
+
+        selected.classList.remove("hide");
+
+    }
+
+
+    const titles = {
+
+        dashboard: "داشبورد",
+
+        members: "Members",
+
+        ranks: "Ranks",
+
+        teamspeak: "TeamSpeak Log",
+
+        locker: "Locker Log",
+
+        gang: "Gang Log",
+
+        tickets: "Requests"
+
+    };
+
+
+    const title =
+        document.getElementById("title");
+
+
+    if (title) {
+
+        title.textContent =
+            titles[page] || "Arazel";
+
+    }
+
+}
+
+
+// --------------------------------
+// Members
+// --------------------------------
+
+function newMember() {
+
+    const form =
+        document.getElementById("memberForm");
+
+
+    if (!form) return;
+
+
+    form.classList.remove("hide");
+
+
+    form.innerHTML = `
+
+        <h3>عضو جدید</h3>
+
+        <input
+            id="newMemberName"
+            placeholder="نام"
+        >
+
+        <input
+            id="newMemberRank"
+            placeholder="رنک"
+        >
+
+        <button
+            onclick="addMember()"
+        >
+            ذخیره عضو
+        </button>
+
+    `;
+
+}
+
+
+function addMember() {
+
+    const nameElement =
+        document.getElementById(
+            "newMemberName"
+        );
+
+
+    const rankElement =
+        document.getElementById(
+            "newMemberRank"
+        );
+
+
+    if (!nameElement) return;
+
+
+    const name =
+        nameElement.value.trim();
+
+
+    const rank =
+        rankElement
+            ? rankElement.value.trim()
+            : "";
+
+
+    if (!name) {
+
+        alert(
+            "نام عضو را وارد کنید."
+        );
+
+        return;
+
+    }
+
+
+    const table =
+        document.getElementById(
+            "members"
+        );
+
+
+    if (!table) return;
+
+
+    const row =
+        document.createElement("tr");
+
+
+    row.innerHTML = `
+
+        <td>
+            ${escapeHtml(name)}
+        </td>
+
+        <td>
+            ${escapeHtml(rank)}
+        </td>
+
+        <td>
+            -
+        </td>
+
+        <td>
+            0
+        </td>
+
+        <td>
+            0
+        </td>
+
+        <td>
+            Active
+        </td>
+
+        <td>
+            <button
+                onclick="this.closest('tr').remove(); updateStats();"
+            >
+                حذف
+            </button>
+        </td>
+
+    `;
+
+
+    table.appendChild(row);
+
+
+    const form =
+        document.getElementById(
+            "memberForm"
+        );
+
+
+    if (form) {
+
+        form.classList.add("hide");
+
+    }
+
+
+    updateStats();
+
+}
+
+
+// --------------------------------
+// Dashboard statistics
+// --------------------------------
+
+function updateStats() {
+
+    const members =
+        document.querySelectorAll(
+            "#members tr"
+        );
+
+
+    const memberCount =
+        document.getElementById("sm");
+
+
+    if (memberCount) {
+
+        memberCount.textContent =
+            members.length;
+
+    }
+
+}
+
+
+// --------------------------------
+// Ranks
+// --------------------------------
+
+function saveRanks() {
+
+    alert(
+        "رنک‌ها ذخیره شدند."
+    );
+
+}
+
+
+// --------------------------------
+// Logs
+// --------------------------------
+
+function logModal(type) {
+
+    const modal =
+        document.getElementById(
+            "modal"
+        );
+
+
+    if (!modal) return;
+
+
+    modal.classList.remove("hide");
+
+
+    const category =
+        document.getElementById("lc");
+
+
+    if (category) {
+
+        category.value = type;
+
+    }
+
+
+    const title =
+        document.getElementById("mt");
+
+
+    if (title) {
+
+        title.textContent =
+            type + " Log";
+
+    }
+
+}
+
+
+function closeModal() {
+
+    const modal =
+        document.getElementById(
+            "modal"
+        );
+
+
+    if (modal) {
+
+        modal.classList.add("hide");
+
+    }
+
+}
+
+
+function saveLog() {
+
+    const type =
+        document.getElementById(
+            "lc"
+        )?.value;
+
+
+    const actor =
+        document.getElementById(
+            "la"
+        )?.value.trim();
+
+
+    const subject =
+        document.getElementById(
+            "ls"
+        )?.value.trim();
+
+
+    const action =
+        document.getElementById(
+            "lx"
+        )?.value.trim();
+
+
+    if (!actor && !subject && !action) {
+
+        closeModal();
+
+        return;
+
+    }
+
+
+    const target =
+        document.getElementById(
+            type + "logs"
+        );
+
+
+    if (target) {
+
+        const item =
+            document.createElement(
+                "p"
+            );
+
+
+        item.textContent =
+            `${actor || "-"} — ${subject || "-"} — ${action || "-"}`;
+
+
+        target.prepend(item);
+
+    }
+
+
+    closeModal();
+
+}
+
+
+// --------------------------------
+// HTML safety
+// --------------------------------
+
+function escapeHtml(text) {
+
+    const div =
+        document.createElement(
+            "div"
+        );
+
+
+    div.textContent =
+        text;
+
+
+    return div.innerHTML;
+
+}
+
+
+// --------------------------------
+// Start
+// --------------------------------
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function() {
+
+        updateStats();
+
+    }
+);
+```
